@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codegraph · __CODEGRAPH_TITLE__</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f0f2f5; --text: #1b1f24; --muted: #5d6673; --faint: #8b94a1;
+  --border: #dde1e6; --accent: #3b6fe0; --accent-soft: rgba(59,111,224,.12); --edge: rgba(60,70,90,.16);
+  --edge-hi: rgba(59,111,224,.85); --edge-in: rgba(214,120,30,.85); --label: #1b1f24; --label-halo: rgba(246,247,249,.9);
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.06);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --panel: #161a20; --panel-2: #1d222a; --text: #e5e9ee; --muted: #9aa4b1; --faint: #6b7583;
+    --border: #2a313b; --accent: #6f9bff; --accent-soft: rgba(111,155,255,.15); --edge: rgba(170,185,210,.13);
+    --edge-hi: rgba(111,155,255,.9); --edge-in: rgba(240,160,80,.9); --label: #e5e9ee; --label-halo: rgba(15,18,22,.85);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --panel: #161a20; --panel-2: #1d222a; --text: #e5e9ee; --muted: #9aa4b1; --faint: #6b7583;
+  --border: #2a313b; --accent: #6f9bff; --accent-soft: rgba(111,155,255,.15); --edge: rgba(170,185,210,.13);
+  --edge-hi: rgba(111,155,255,.9); --edge-in: rgba(240,160,80,.9); --label: #e5e9ee; --label-halo: rgba(15,18,22,.85);
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+#app { display: grid; grid-template-columns: 290px 1fr 380px; grid-template-rows: 48px 1fr; height: 100vh; }
+header { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 0 14px; border-bottom: 1px solid var(--border); background: var(--panel); }
+header h1 { font-size: 14px; font-weight: 650; margin: 0; white-space: nowrap; }
+header .stats { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header .sp { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--muted); padding: 5px 10px; font: inherit; cursor: pointer; }
+.seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.iconbtn { border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 7px; padding: 5px 9px; cursor: pointer; font: inherit; }
+.iconbtn:hover { color: var(--text); }
+aside { background: var(--panel); overflow: auto; min-height: 0; }
+#left { border-right: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+#right { border-left: 1px solid var(--border); padding: 14px; }
+.search { position: relative; }
+.search input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; outline: none; }
+.search input:focus { border-color: var(--accent); }
+#results { margin-top: 6px; display: flex; flex-direction: column; gap: 1px; max-height: 38vh; overflow: auto; }
+.res { padding: 5px 7px; border-radius: 6px; cursor: pointer; display: grid; grid-template-columns: auto 1fr; gap: 0 7px; }
+.res:hover, .res.sel { background: var(--accent-soft); }
+.res .nm { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.res .pt { grid-column: 2; color: var(--faint); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kind { font-family: var(--mono); font-size: 10px; padding: 1px 5px; border-radius: 4px; background: var(--panel-2); color: var(--muted); align-self: start; margin-top: 1px; border: 1px solid var(--border); }
+h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin: 0 0 6px; font-weight: 650; }
+.legend { display: flex; flex-direction: column; gap: 2px; }
+.lg { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 6px; cursor: pointer; user-select: none; }
+.lg:hover { background: var(--panel-2); }
+.lg.off { opacity: .38; }
+.sw { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.lg .n { margin-left: auto; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.lg .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 12px; }
+.opts { display: flex; flex-direction: column; gap: 6px; }
+.opts label { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--muted); }
+.opts input[type=range] { flex: 1; }
+#stage { position: relative; min-width: 0; min-height: 0; }
+canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+canvas.dragging { cursor: grabbing; }
+#tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; box-shadow: var(--shadow); max-width: 380px; display: none; font-size: 12px; }
+#tip .p { font-family: var(--mono); font-weight: 600; }
+#tip .s { color: var(--muted); margin-top: 2px; }
+#hint { position: absolute; left: 12px; bottom: 10px; color: var(--faint); font-size: 11px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+#zoomctl { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 6px; }
+.empty { color: var(--faint); padding: 30px 6px; text-align: center; }
+.path { font-family: var(--mono); font-size: 13px; font-weight: 650; word-break: break-all; }
+.sum { color: var(--muted); margin: 6px 0 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.chip { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
+.chip a { color: var(--accent); text-decoration: none; }
+.sec { margin: 14px 0; }
+.flist { display: flex; flex-direction: column; gap: 1px; }
+.fl { font-family: var(--mono); font-size: 12px; padding: 3px 6px; border-radius: 5px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.fl:hover { background: var(--accent-soft); }
+.fl .sw { width: 8px; height: 8px; }
+.fl span.x { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sym { border-radius: 6px; padding: 4px 6px; cursor: pointer; }
+.sym:hover { background: var(--panel-2); }
+.sym .row { display: flex; gap: 6px; align-items: baseline; }
+.sym .nm { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.sym .ln { font-family: var(--mono); font-size: 11px; color: var(--faint); white-space: nowrap; }
+.sym .doc { color: var(--muted); font-size: 11.5px; margin: 2px 0 0 0; }
+.sym .det { margin: 6px 0 2px 6px; padding-left: 8px; border-left: 2px solid var(--border); display: none; }
+.sym.open .det { display: block; }
+.sym .det .sig { font-family: var(--mono); font-size: 11.5px; color: var(--text); word-break: break-word; margin-bottom: 4px; }
+.sym .det .lbl { color: var(--faint); font-size: 11px; margin-top: 4px; }
+.ref { font-family: var(--mono); font-size: 11.5px; padding: 1px 0; cursor: pointer; color: var(--accent); }
+.ref:hover { text-decoration: underline; }
+.indent { margin-left: 14px; }
+a.open { color: var(--accent); text-decoration: none; font-size: 12px; }
+kbd { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; background: var(--panel-2); }
+@media (max-width: 1100px) { #app { grid-template-columns: 250px 1fr 320px; } }
+@media (max-width: 820px) {
+  body { overflow: auto; }
+  #app { grid-template-columns: 1fr; grid-template-rows: auto 60vh auto auto; height: auto; }
+  header { flex-wrap: wrap; padding: 8px 16px; gap: 8px; }
+  #left, #right { border: 0; border-top: 1px solid var(--border); padding: 12px 16px; }
+  #stage { order: 1; } #left { order: 2; } #right { order: 3; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1 id="title">Codegraph</h1>
+    <div class="stats" id="stats"></div>
+    <div class="sp"></div>
+    <div class="seg" id="modeSeg"><button data-v="files" class="on">Files</button><button data-v="folders">Folders</button></div>
+    <div class="seg" id="colorSeg"><button data-v="folder" class="on">By folder</button><button data-v="lang">By language</button></div>
+    <button class="iconbtn" id="themeBtn" title="Toggle theme">◐</button>
+  </header>
+  <aside id="left">
+    <div class="search">
+      <input id="q" placeholder="Search files & symbols…  ( / )" autocomplete="off" spellcheck="false">
+      <div id="results"></div>
+    </div>
+    <div>
+      <h3>Show</h3>
+      <div class="opts">
+        <label><input type="checkbox" id="optTests" checked> Tests</label>
+        <label><input type="checkbox" id="optDocs"> Docs &amp; config</label>
+        <label><input type="checkbox" id="optStyle"> Stylesheets</label>
+        <label><input type="checkbox" id="optVendor"> Third-party / vendor</label>
+        <label><input type="checkbox" id="optIsolated" checked> Unconnected files</label>
+        <label><input type="checkbox" id="optLabels" checked> Labels</label>
+        <label title="Only show the selected file and its neighbours"><input type="checkbox" id="optFocus"> Focus on selection</label>
+        <label title="Neighbourhood depth for focus mode">Depth <input type="range" id="optDepth" min="1" max="4" value="1"><span id="depthV">1</span></label>
+      </div>
+    </div>
+    <div>
+      <h3 id="legendTitle">Folders</h3>
+      <div class="legend" id="legend"></div>
+    </div>
+  </aside>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="tip"></div>
+    <div id="hint">Scroll to zoom · drag to pan · click a node · double-click to focus · <kbd>Esc</kbd> to clear</div>
+    <div id="zoomctl"><button class="iconbtn" id="fitBtn" title="Fit to view">Fit</button><button class="iconbtn" id="relayoutBtn" title="Re-run layout">Re-layout</button></div>
+  </div>
+  <aside id="right"><div class="empty" id="emptyDetail">Select a file or folder to see its symbols, dependencies and line ranges.</div><div id="detail"></div></aside>
+</div>
+<script id="cg-data" type="application/json">__CODEGRAPH_DATA__</script>
+<script>
+(() => {
+'use strict';
+const D = JSON.parse(document.getElementById('cg-data').textContent);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const KIND = { function: 'fn', method: 'm', class: 'cls', interface: 'iface', type: 'type', enum: 'enum', const: 'const', struct: 'struct', trait: 'trait', impl: 'impl', module: 'mod', namespace: 'ns', macro: 'macro', object: 'obj', heading: '#', target: 'tgt', script: 'run', route: 'route', table: 'tbl', view: 'view', procedure: 'proc', protocol: 'proto', extension: 'ext' };
+const rng = (s) => s.e > s.l ? `L${s.l}–${s.e}` : `L${s.l}`;
+const rootUri = (D.root || '').replace(/\\/g, '/');
+const vscodeLink = (p, line) => `vscode://file/${encodeURI(rootUri + '/' + p)}${line ? ':' + line : ''}`;
+
+// ── index ──
+const files = D.files, syms = D.syms;
+syms.forEach((s, i) => { s.id = i; });
+const symsByFile = files.map(() => []);
+syms.forEach((s) => symsByFile[s.f].push(s));
+const outE = files.map(() => new Set()), inE = files.map(() => new Set());
+for (const e of D.edges) { outE[e.s].add(e.t); inE[e.t].add(e.s); }
+const callers = new Map(), callees = new Map();
+for (const [from, file, to, line, count] of D.refs) {
+  if (!callers.has(to)) callers.set(to, []); callers.get(to).push({ from, file, line, count });
+  if (from >= 0) { if (!callees.has(from)) callees.set(from, []); callees.get(from).push({ to, line, count }); }
+}
+const dirOf = (p) => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '.';
+
+// group depth: pick the shallowest depth giving 4..14 groups
+const groupAt = (p, d) => { const parts = p.split('/'); return parts.length <= 1 ? '(root)' : parts.slice(0, Math.min(d, parts.length - 1)).join('/'); };
+let GD = 1;
+for (let d = 1; d <= 3; d++) { const n = new Set(files.map((f) => groupAt(f.p, d))).size; GD = d; if (n >= 4) break; }
+files.forEach((f) => { f.group = groupAt(f.p, GD); f.folder = dirOf(f.p); });
+
+const PALETTE = ['#4e79a7', '#f28e2b', '#59a14f', '#e15759', '#76b7b2', '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#6b8e23', '#17becf', '#d4a017', '#8c564b', '#7f7fff', '#2ca089', '#c45ab3'];
+const colorKeys = { folder: [], lang: [] };
+const countBy = (fn) => { const m = new Map(); files.forEach((f) => m.set(fn(f), (m.get(fn(f)) || 0) + 1)); return [...m.entries()].sort((a, b) => b[1] - a[1]); };
+const groupCounts = countBy((f) => f.group), langCounts = countBy((f) => f.lang);
+const colorOf = { folder: new Map(), lang: new Map() };
+groupCounts.forEach(([k], i) => colorOf.folder.set(k, i < PALETTE.length ? PALETTE[i] : '#8a8f98'));
+langCounts.forEach(([k], i) => colorOf.lang.set(k, i < PALETTE.length ? PALETTE[i] : '#8a8f98'));
+
+// ── state ──
+const S = { mode: 'files', color: 'folder', hiddenGroups: new Set(), hiddenLangs: new Set(), selected: null, hover: null,
+  tests: true, docs: false, style: false, vendor: false, isolated: true, labels: true, focus: false, depth: 1 };
+let nodes = [], links = [], nodeById = new Map();
+const view = { x: 0, y: 0, k: 1 };
+const posCache = new Map();
+
+function fileVisible(f, i) {
+  if (!S.tests && f.cat === 'test') return false;
+  if (!S.docs && (f.cat === 'doc' || f.cat === 'config')) return false;
+  if (!S.style && f.cat === 'style') return false;
+  if (!S.vendor && f.cat === 'vendor') return false;
+  if (S.hiddenGroups.has(f.group) && S.color === 'folder') return false;
+  if (S.hiddenLangs.has(f.lang) && S.color === 'lang') return false;
+  return true;
+}
+
+function neighborhood(startIds, adjOut, adjIn, depth) {
+  const seen = new Set(startIds); let fr = [...startIds];
+  for (let d = 0; d < depth; d++) { const nx = []; for (const n of fr) for (const m of [...(adjOut(n) || []), ...(adjIn(n) || [])]) if (!seen.has(m)) { seen.add(m); nx.push(m); } fr = nx; }
+  return seen;
+}
+
+function rebuild() {
+  // save positions
+  for (const n of nodes) posCache.set(n.key, { x: n.x, y: n.y });
+  nodes = []; links = []; nodeById = new Map();
+  if (S.mode === 'files') {
+    const vis = files.map((f, i) => fileVisible(f, i));
+    let allowed = null;
+    if (S.focus && S.selected && S.selected.type === 'file') allowed = neighborhood([S.selected.id], (n) => outE[n], (n) => inE[n], S.depth);
+    files.forEach((f, i) => {
+      if (!vis[i] || (allowed && !allowed.has(i))) return;
+      const deg = [...outE[i]].filter((j) => vis[j]).length + [...inE[i]].filter((j) => vis[j]).length;
+      if (!S.isolated && deg === 0 && !allowed) return;
+      const n = { key: 'f' + i, id: i, type: 'file', label: f.p.slice(f.p.lastIndexOf('/') + 1), full: f.p, f, r: 3 + Math.sqrt(Math.max(f.lines, 1)) * 0.28 + Math.sqrt(inE[i].size) * 1.4, group: f.group };
+      n.r = Math.min(n.r, 26); nodes.push(n); nodeById.set(n.key, n);
+    });
+    for (const e of D.edges) { const a = nodeById.get('f' + e.s), b = nodeById.get('f' + e.t); if (a && b) links.push({ source: a, target: b, w: 1 + Math.min(4, e.refs * 0.3) }); }
+  } else {
+    const fold = new Map();
+    files.forEach((f, i) => {
+      if (!fileVisible(f, i)) return;
+      const k = f.folder;
+      if (!fold.has(k)) fold.set(k, { key: 'd' + k, id: k, type: 'folder', label: k === '.' ? './' : k.split('/').pop() + '/', full: k, files: [], lines: 0, group: f.group });
+      const d = fold.get(k); d.files.push(i); d.lines += f.lines;
+    });
+    const agg = new Map();
+    for (const e of D.edges) {
+      const a = files[e.s], b = files[e.t];
+      if (!fold.has(a.folder) || !fold.has(b.folder) || a.folder === b.folder) continue;
+      const k = a.folder + '\u0000' + b.folder; agg.set(k, (agg.get(k) || 0) + 1);
+    }
+    let allowed = null;
+    if (S.focus && S.selected && S.selected.type === 'folder') {
+      const oa = new Map(), ia = new Map();
+      for (const k of agg.keys()) { const [a, b] = k.split('\u0000'); (oa.get(a) || oa.set(a, []).get(a)).push(b); (ia.get(b) || ia.set(b, []).get(b)).push(a); }
+      allowed = neighborhood([S.selected.id], (n) => oa.get(n), (n) => ia.get(n), S.depth);
+    }
+    for (const d of fold.values()) {
+      if (allowed && !allowed.has(d.id)) continue;
+      d.r = Math.min(34, 5 + Math.sqrt(d.files.length) * 3.2); nodes.push(d); nodeById.set(d.key, d);
+    }
+    for (const [k, w] of agg) { const [a, b] = k.split('\u0000'); const na = nodeById.get('d' + a), nb = nodeById.get('d' + b); if (na && nb) links.push({ source: na, target: nb, w: Math.min(6, 1 + Math.log2(w)) , count: w }); }
+  }
+  // adjacency for highlight
+  for (const n of nodes) { n.nb = new Set(); n.outs = new Set(); n.ins = new Set(); }
+  for (const l of links) { l.source.nb.add(l.target); l.target.nb.add(l.source); l.source.outs.add(l.target); l.target.ins.add(l.source); }
+  // initial positions: cached, else clustered by group
+  const groups = [...new Set(nodes.map((n) => n.group))];
+  const gAngle = new Map(groups.map((g, i) => [g, (i / Math.max(1, groups.length)) * Math.PI * 2]));
+  const R0 = 40 + Math.sqrt(nodes.length) * 22;
+  for (const n of nodes) {
+    const c = posCache.get(n.key);
+    if (c) { n.x = c.x; n.y = c.y; }
+    else { const a = gAngle.get(n.group) || 0; const rr = R0 * (0.55 + Math.random() * 0.25); n.x = Math.cos(a) * rr + (Math.random() - .5) * R0 * .5; n.y = Math.sin(a) * rr + (Math.random() - .5) * R0 * .5; }
+    n.vx = 0; n.vy = 0;
+  }
+  sim.alpha = posCache.size && nodes.every((n) => posCache.has(n.key)) ? 0.25 : 1;
+  renderLegend();
+  updateStats();
+  kick();
+}
+
+// ── force simulation (Barnes–Hut) ──
+const sim = { alpha: 1, running: false };
+function quadtree(ns) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of ns) { if (n.x < x0) x0 = n.x; if (n.y < y0) y0 = n.y; if (n.x > x1) x1 = n.x; if (n.y > y1) y1 = n.y; }
+  const size = Math.max(x1 - x0, y1 - y0, 1) + 1;
+  const root = { x0, y0, s: size, m: 0, cx: 0, cy: 0, kids: null, node: null };
+  const insert = (q, n, depth) => {
+    if (!q.kids && !q.node) { q.node = n; q.m = 1; q.cx = n.x; q.cy = n.y; return; }
+    if (!q.kids) {
+      if (depth > 40) { q.m++; return; }
+      q.kids = [null, null, null, null]; const old = q.node; q.node = null; place(q, old, depth);
+    }
+    q.cx = (q.cx * q.m + n.x) / (q.m + 1); q.cy = (q.cy * q.m + n.y) / (q.m + 1); q.m++;
+    place(q, n, depth);
+  };
+  const place = (q, n, depth) => {
+    const h = q.s / 2, i = (n.x >= q.x0 + h ? 1 : 0) + (n.y >= q.y0 + h ? 2 : 0);
+    if (!q.kids[i]) q.kids[i] = { x0: q.x0 + (i & 1 ? h : 0), y0: q.y0 + (i & 2 ? h : 0), s: h, m: 0, cx: 0, cy: 0, kids: null, node: null };
+    insert(q.kids[i], n, depth + 1);
+  };
+  for (const n of ns) insert(root, n, 0);
+  return root;
+}
+function tick() {
+  const a = sim.alpha, N = nodes.length;
+  if (!N) { sim.alpha = 0; return; }
+  const rep = -260 * (S.mode === 'folders' ? 2 : 1);
+  const qt = quadtree(nodes);
+  for (const n of nodes) {
+    const stack = [qt];
+    while (stack.length) {
+      const q = stack.pop();
+      if (!q || !q.m) continue;
+      const dx = q.cx - n.x, dy = q.cy - n.y; let d2 = dx * dx + dy * dy;
+      if (q.node === n && !q.kids) continue;
+      if (!q.kids || (q.s * q.s) / (d2 + 1e-6) < 0.81) {
+        if (d2 < 1) d2 = 1;
+        if (d2 > 640000) continue;
+        const f = (rep * q.m * a) / d2;
+        n.vx += dx * f; n.vy += dy * f;
+      } else for (const k of q.kids) if (k) stack.push(k);
+    }
+  }
+  const L = S.mode === 'folders' ? 90 : 48;
+  for (const l of links) {
+    const s = l.source, t = l.target; let dx = t.x - s.x, dy = t.y - s.y; const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    const deg = Math.min(s.nb.size, t.nb.size) || 1;
+    const k = ((d - L - s.r - t.r) / d) * a * 0.5 / deg;
+    dx *= k; dy *= k; t.vx -= dx; t.vy -= dy; s.vx += dx; s.vy += dy;
+  }
+  // cluster gravity toward group centroid + weak center gravity
+  const cent = new Map();
+  for (const n of nodes) { const c = cent.get(n.group) || { x: 0, y: 0, n: 0 }; c.x += n.x; c.y += n.y; c.n++; cent.set(n.group, c); }
+  for (const n of nodes) {
+    const c = cent.get(n.group);
+    n.vx += ((c.x / c.n) - n.x) * 0.012 * a; n.vy += ((c.y / c.n) - n.y) * 0.012 * a;
+    n.vx -= n.x * 0.004 * a; n.vy -= n.y * 0.004 * a;
+  }
+  for (const n of nodes) {
+    if (n.fixed) { n.vx = n.vy = 0; continue; }
+    n.vx *= 0.6; n.vy *= 0.6;
+    const sp = Math.hypot(n.vx, n.vy); if (sp > 40) { n.vx *= 40 / sp; n.vy *= 40 / sp; }
+    n.x += n.vx; n.y += n.vy;
+  }
+  sim.alpha *= nodes.length > 400 ? 0.992 : 0.988;
+}
+function kick(a) { if (a) sim.alpha = Math.max(sim.alpha, a); if (!sim.running) { sim.running = true; requestAnimationFrame(loop); } }
+let fitted = false;
+function loop() {
+  const budget = performance.now() + 12;
+  let steps = 0;
+  while (sim.alpha > 0.008 && performance.now() < budget && steps < 6) { tick(); steps++; }
+  if (!fitted && (sim.alpha < 0.3 || nodes.length < 2)) { fit(); fitted = true; }
+  draw();
+  if (sim.alpha > 0.008 || dragNode) requestAnimationFrame(loop); else { sim.running = false; draw(); }
+}
+
+// ── rendering ──
+const cv = $('cv'), ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() { const r = cv.getBoundingClientRect(); DPR = window.devicePixelRatio || 1; W = r.width; H = r.height; cv.width = W * DPR; cv.height = H * DPR; draw(); }
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let C = {};
+function readColors() { C = { edge: css('--edge'), hi: css('--edge-hi'), inn: css('--edge-in'), label: css('--label'), halo: css('--label-halo'), bg: css('--bg'), accent: css('--accent') }; }
+function nodeColor(n) {
+  if (n.type === 'folder') return colorOf.folder.get(n.group) || '#888';
+  return S.color === 'folder' ? colorOf.folder.get(n.f.group) : colorOf.lang.get(n.f.lang);
+}
+function draw() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.translate(W / 2 + view.x, H / 2 + view.y); ctx.scale(view.k, view.k);
+  const focus = S.hover || selNode();
+  const near = focus ? focus.nb : null;
+  // edges
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / view.k;
+  ctx.beginPath();
+  for (const l of links) { if (focus && (l.source === focus || l.target === focus)) continue; ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); }
+  ctx.globalAlpha = focus ? 0.35 : 1; ctx.stroke(); ctx.globalAlpha = 1;
+  if (focus) {
+    for (const l of links) {
+      if (l.source !== focus && l.target !== focus) continue;
+      const out = l.source === focus;
+      ctx.strokeStyle = out ? C.hi : C.inn; ctx.lineWidth = Math.max(1.2, l.w * 0.8) / view.k;
+      arrow(l.source, l.target);
+    }
+  } else if (view.k > 1.4) {
+    ctx.strokeStyle = C.edge; ctx.lineWidth = 1 / view.k;
+    for (const l of links) arrowHead(l.source, l.target, C.edge);
+  }
+  // nodes
+  for (const n of nodes) {
+    const dim = focus && n !== focus && !near.has(n);
+    ctx.globalAlpha = dim ? 0.18 : 1;
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = nodeColor(n); ctx.fill();
+    if (n.type === 'file' && n.f.cat === 'test') { ctx.lineWidth = 1.6 / view.k; ctx.strokeStyle = C.bg; ctx.setLineDash([2 / view.k, 2 / view.k]); ctx.stroke(); ctx.setLineDash([]); }
+    if (n === focus || n === selNode()) { ctx.lineWidth = 2.5 / view.k; ctx.strokeStyle = C.label; ctx.stroke(); }
+    else if (n.type === 'file' && n.f.main) { ctx.lineWidth = 1.5 / view.k; ctx.strokeStyle = C.label; ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+  // labels
+  if (S.labels) {
+    const fs = 11 / view.k;
+    ctx.font = `${fs}px ui-monospace, Menlo, Consolas, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.lineWidth = 3 / view.k; ctx.strokeStyle = C.halo; ctx.fillStyle = C.label;
+    const minR = view.k > 1.6 ? 0 : view.k > 0.9 ? 6 : 10;
+    for (const n of nodes) {
+      const show = n === focus || (near && near.has(n)) || (!focus && (n.r * view.k >= minR * view.k || nodes.length < 60 || n.r >= minR));
+      if (!show) continue;
+      if (focus && n !== focus && !near.has(n)) continue;
+      ctx.strokeText(n.label, n.x, n.y + n.r + 2 / view.k); ctx.fillText(n.label, n.x, n.y + n.r + 2 / view.k);
+    }
+  }
+}
+function arrow(s, t) {
+  ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.stroke();
+  arrowHead(s, t, ctx.strokeStyle);
+}
+function arrowHead(s, t, color) {
+  const dx = t.x - s.x, dy = t.y - s.y, d = Math.hypot(dx, dy) || 1; const ux = dx / d, uy = dy / d;
+  const ex = t.x - ux * (t.r + 1.5), ey = t.y - uy * (t.r + 1.5); const sz = 6 / view.k;
+  ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - ux * sz - uy * sz * 0.55, ey - uy * sz + ux * sz * 0.55); ctx.lineTo(ex - ux * sz + uy * sz * 0.55, ey - uy * sz - ux * sz * 0.55); ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+}
+function fit() {
+  if (!nodes.length) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of nodes) { x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r); x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r + 14); }
+  const k = Math.min(3, 0.9 * Math.min(W / Math.max(1, x1 - x0), H / Math.max(1, y1 - y0)));
+  view.k = k; view.x = -((x0 + x1) / 2) * k; view.y = -((y0 + y1) / 2) * k; draw();
+}
+function centerOn(n) { view.k = Math.max(view.k, 1.2); view.x = -n.x * view.k; view.y = -n.y * view.k; draw(); }
+
+// ── interaction ──
+const toWorld = (ex, ey) => { const r = cv.getBoundingClientRect(); return { x: (ex - r.left - W / 2 - view.x) / view.k, y: (ey - r.top - H / 2 - view.y) / view.k }; };
+function pick(ex, ey) { const p = toWorld(ex, ey); let best = null, bd = Infinity; for (const n of nodes) { const d = Math.hypot(n.x - p.x, n.y - p.y); if (d < n.r + 4 / view.k && d < bd) { bd = d; best = n; } } return best; }
+let dragNode = null, panning = null, moved = false;
+cv.addEventListener('pointerdown', (e) => {
+  cv.setPointerCapture(e.pointerId); moved = false;
+  const n = pick(e.clientX, e.clientY);
+  if (n) { dragNode = n; n.fixed = true; kick(0.2); } else panning = { x: e.clientX - view.x, y: e.clientY - view.y };
+  cv.classList.add('dragging');
+});
+cv.addEventListener('pointermove', (e) => {
+  if (dragNode) { const p = toWorld(e.clientX, e.clientY); dragNode.x = p.x; dragNode.y = p.y; moved = true; kick(0.12); return; }
+  if (panning) { view.x = e.clientX - panning.x; view.y = e.clientY - panning.y; moved = true; draw(); return; }
+  const n = pick(e.clientX, e.clientY);
+  if (n !== S.hover) { S.hover = n; draw(); }
+  const tip = $('tip');
+  if (n) {
+    const r = $('stage').getBoundingClientRect();
+    tip.style.display = 'block';
+    tip.innerHTML = n.type === 'file'
+      ? `<div class="p">${esc(n.full)}</div><div class="s">${esc(n.f.lines)} lines · ${symsByFile[n.id].length} symbols · ←${inE[n.id].size} →${outE[n.id].size}</div>${n.f.sum ? `<div class="s">${esc(n.f.sum)}</div>` : ''}`
+      : `<div class="p">${esc(n.full)}/</div><div class="s">${n.files.length} files · ${n.lines} lines</div>`;
+    let x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
+    if (x + 380 > r.width) x = Math.max(8, e.clientX - r.left - 390);
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  } else tip.style.display = 'none';
+});
+const endDrag = (e) => {
+  cv.classList.remove('dragging');
+  if (dragNode) { if (!moved) { dragNode.fixed = false; select(dragNode); } dragNode = null; }
+  else if (panning && !moved) select(null);
+  panning = null;
+};
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointerleave', () => { if (S.hover) { S.hover = null; draw(); } $('tip').style.display = 'none'; });
+cv.addEventListener('dblclick', (e) => { const n = pick(e.clientX, e.clientY); if (n) { n.fixed = false; select(n); $('optFocus').checked = S.focus = true; rebuild(); } });
+cv.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const r = cv.getBoundingClientRect(); const mx = e.clientX - r.left - W / 2, my = e.clientY - r.top - H / 2;
+  const k2 = Math.min(8, Math.max(0.05, view.k * Math.exp(-e.deltaY * 0.0015)));
+  view.x = mx - (mx - view.x) * (k2 / view.k); view.y = my - (my - view.y) * (k2 / view.k); view.k = k2; draw();
+}, { passive: false });
+window.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement !== $('q')) { e.preventDefault(); $('q').focus(); }
+  if (e.key === 'Escape') { if (document.activeElement === $('q')) $('q').blur(); select(null); if (S.focus) { S.focus = $('optFocus').checked = false; rebuild(); } }
+});
+
+function selNode() { if (!S.selected) return null; return nodeById.get((S.selected.type === 'file' ? 'f' : 'd') + S.selected.id) || null; }
+function select(n, opts = {}) {
+  if (!n) { S.selected = null; renderDetail(); draw(); return; }
+  S.selected = { type: n.type, id: n.id };
+  renderDetail(opts);
+  if (S.focus) rebuild();
+  draw();
+}
+function selectFile(i, opts = {}) {
+  if (S.mode !== 'files') setMode('files');
+  let n = nodeById.get('f' + i);
+  if (!n) { // make it visible
+    const f = files[i];
+    if (f.cat === 'test') S.tests = $('optTests').checked = true;
+    if (f.cat === 'doc' || f.cat === 'config') S.docs = $('optDocs').checked = true;
+    if (f.cat === 'style') S.style = $('optStyle').checked = true;
+    if (f.cat === 'vendor') S.vendor = $('optVendor').checked = true;
+    S.hiddenGroups.delete(f.group); S.hiddenLangs.delete(f.lang); S.isolated = $('optIsolated').checked = true;
+    S.selected = { type: 'file', id: i }; rebuild(); n = nodeById.get('f' + i);
+  }
+  if (n) { select(n, opts); centerOn(n); }
+}
+
+// ── detail panel ──
+function fileChip(i) { const f = files[i]; return `<div class="fl" data-file="${i}"><span class="sw" style="background:${S.color === 'folder' ? colorOf.folder.get(f.group) : colorOf.lang.get(f.lang)}"></span><span class="x">${esc(f.p)}</span></div>`; }
+function renderDetail(opts = {}) {
+  const box = $('detail');
+  $('emptyDetail').style.display = S.selected ? 'none' : 'block';
+  if (!S.selected) { box.innerHTML = ''; return; }
+  if (S.selected.type === 'folder') {
+    const dir = S.selected.id; const n = nodeById.get('d' + dir);
+    const list = n ? n.files : files.map((f, i) => i).filter((i) => files[i].folder === dir);
+    box.innerHTML = `<div class="path">${esc(dir)}/</div><div class="chips"><span class="chip">${list.length} files</span></div>
+      <div class="sec"><h3>Files</h3><div class="flist">${list.map(fileChip).join('')}</div></div>`;
+    return;
+  }
+  const i = S.selected.id, f = files[i];
+  const sy = symsByFile[i];
+  const depth = (s) => { let d = 0, p = s.p; while (p !== undefined) { d++; p = syms[p].p; } return d; };
+  const symHtml = sy.map((s) => {
+    const c = (callers.get(s.id) || []).length;
+    return `<div class="sym${opts.openSym === s.id ? ' open' : ''}" data-sym="${s.id}" style="margin-left:${depth(s) * 14}px">
+      <div class="row"><span class="kind">${esc(KIND[s.k] || s.k)}</span><span class="nm">${esc((s.o ? s.o + '.' : '') + s.n)}</span><span class="ln">${rng(s)}${c ? ` · ${c}↩` : ''}</span></div>
+      ${s.doc ? `<div class="doc">${esc(s.doc)}</div>` : ''}<div class="det"></div></div>`;
+  }).join('');
+  box.innerHTML = `<div class="path">${esc(f.p)}</div>
+    ${f.sum ? `<div class="sum">${esc(f.sum)}</div>` : '<div style="height:8px"></div>'}
+    <div class="chips"><span class="chip">${esc(f.lang)}</span><span class="chip">${f.lines} lines</span><span class="chip">${sy.length} symbols</span><span class="chip">← ${inE[i].size} · → ${outE[i].size}</span>${f.cat !== 'code' ? `<span class="chip">${esc(f.cat)}</span>` : ''}<span class="chip"><a href="${vscodeLink(f.p, 1)}">Open in VS Code</a></span></div>
+    ${outE[i].size ? `<div class="sec"><h3>Uses (${outE[i].size})</h3><div class="flist">${[...outE[i]].map(fileChip).join('')}</div></div>` : ''}
+    ${inE[i].size ? `<div class="sec"><h3>Used by (${inE[i].size})</h3><div class="flist">${[...inE[i]].map(fileChip).join('')}</div></div>` : ''}
+    ${f.ext && f.ext.length ? `<div class="sec"><h3>External packages</h3><div class="chips">${f.ext.map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div></div>` : ''}
+    ${sy.length ? `<div class="sec"><h3>Symbols</h3>${symHtml}</div>` : ''}`;
+  if (opts.openSym !== undefined) { const el = box.querySelector(`[data-sym="${opts.openSym}"]`); if (el) { fillSym(el); el.scrollIntoView({ block: 'center' }); } }
+}
+function fillSym(el) {
+  const s = syms[+el.dataset.sym];
+  const cs = callers.get(s.id) || [], ce = callees.get(s.id) || [];
+  const det = el.querySelector('.det');
+  det.innerHTML = `${s.sig ? `<div class="sig">${esc(s.sig)}</div>` : ''}
+    <a class="open" href="${vscodeLink(files[s.f].p, s.l)}">Open ${esc(files[s.f].p.split('/').pop())}:${s.l} ↗</a>
+    ${cs.length ? `<div class="lbl">Referenced from (${cs.length})</div>${cs.slice(0, 40).map((c) => `<div class="ref" data-file="${c.file}" data-line="${c.line}">${esc(files[c.file].p)}:${c.line}${c.from >= 0 ? ' · ' + esc(syms[c.from].n) : ''}${c.count > 1 ? ' ×' + c.count : ''}</div>`).join('')}` : '<div class="lbl">No references found</div>'}
+    ${ce.length ? `<div class="lbl">Uses (${ce.length})</div>${ce.slice(0, 40).map((c) => `<div class="ref" data-file="${syms[c.to].f}" data-sym2="${c.to}">${esc(syms[c.to].n)} · ${esc(files[syms[c.to].f].p)}:${syms[c.to].l}</div>`).join('')}` : ''}`;
+}
+$('detail').addEventListener('click', (e) => {
+  const fl = e.target.closest('[data-file]');
+  if (fl && !e.target.closest('a')) {
+    if (fl.dataset.sym2 !== undefined) { selectFile(+fl.dataset.file, { openSym: +fl.dataset.sym2 }); return; }
+    if (fl.classList.contains('ref')) { window.location.href = vscodeLink(files[+fl.dataset.file].p, +fl.dataset.line); return; }
+    selectFile(+fl.dataset.file); return;
+  }
+  const sy = e.target.closest('.sym');
+  if (sy && !e.target.closest('a') && !e.target.closest('.det')) { sy.classList.toggle('open'); if (sy.classList.contains('open')) fillSym(sy); }
+});
+
+// ── search ──
+const words = (s) => s.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+let resItems = [], resSel = 0;
+function search(q) {
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return [];
+  const out = [];
+  const score = (name, p, extra) => {
+    const nl = name.toLowerCase(), ws = words(name), pl = p.toLowerCase(), el = (extra || '').toLowerCase(); let sc = 0;
+    for (const t of terms) {
+      let s = 0;
+      if (nl === t) s = 10; else if (nl.startsWith(t)) s = 7; else if (ws.includes(t)) s = 6; else if (nl.includes(t)) s = 4; else if (pl.includes(t)) s = 2; else if (el.includes(t)) s = 1; else return 0;
+      sc += s;
+    }
+    return sc;
+  };
+  files.forEach((f, i) => { const sc = score(f.p.split('/').pop(), f.p, f.sum); if (sc) out.push({ sc: sc + 1, file: i }); });
+  for (const s of syms) { const sc = score(s.n, files[s.f].p, (s.doc || '') + ' ' + (s.sig || '')); if (sc) out.push({ sc: sc - (s.k === 'heading' ? 2 : 0), sym: s.id }); }
+  return out.sort((a, b) => b.sc - a.sc).slice(0, 60);
+}
+function renderResults() {
+  $('results').innerHTML = resItems.map((r, k) => {
+    if (r.file !== undefined) { const f = files[r.file]; return `<div class="res${k === resSel ? ' sel' : ''}" data-k="${k}"><span class="kind">file</span><span class="nm">${esc(f.p.split('/').pop())}</span><span class="pt">${esc(f.p)}</span></div>`; }
+    const s = syms[r.sym]; return `<div class="res${k === resSel ? ' sel' : ''}" data-k="${k}"><span class="kind">${esc(KIND[s.k] || s.k)}</span><span class="nm">${esc((s.o ? s.o + '.' : '') + s.n)}</span><span class="pt">${esc(files[s.f].p)}:${s.l}</span></div>`;
+  }).join('') || ($('q').value.trim() ? '<div class="pt" style="color:var(--faint);padding:4px 7px">No matches</div>' : '');
+}
+function openResult(r) { if (!r) return; if (r.file !== undefined) selectFile(r.file); else selectFile(syms[r.sym].f, { openSym: r.sym }); }
+$('q').addEventListener('input', () => { resItems = search($('q').value); resSel = 0; renderResults(); });
+$('q').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') { resSel = Math.min(resItems.length - 1, resSel + 1); renderResults(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') { resSel = Math.max(0, resSel - 1); renderResults(); e.preventDefault(); }
+  if (e.key === 'Enter') openResult(resItems[resSel]);
+});
+$('results').addEventListener('click', (e) => { const el = e.target.closest('.res'); if (el) openResult(resItems[+el.dataset.k]); });
+
+// ── legend & controls ──
+function renderLegend() {
+  const byLang = S.color === 'lang' && S.mode === 'files';
+  $('legendTitle').textContent = byLang ? 'Languages' : 'Folders';
+  const entries = byLang ? langCounts : groupCounts;
+  const hidden = byLang ? S.hiddenLangs : S.hiddenGroups;
+  const cmap = byLang ? colorOf.lang : colorOf.folder;
+  $('legend').innerHTML = entries.map(([k, n]) => `<div class="lg${hidden.has(k) ? ' off' : ''}" data-k="${esc(k)}" title="Click to show/hide · Alt-click to show only this"><span class="sw" style="background:${cmap.get(k)}"></span><span class="t">${esc(k)}</span><span class="n">${n}</span></div>`).join('');
+}
+$('legend').addEventListener('click', (e) => {
+  const el = e.target.closest('.lg'); if (!el) return;
+  const byLang = S.color === 'lang' && S.mode === 'files';
+  const hidden = byLang ? S.hiddenLangs : S.hiddenGroups; const k = el.dataset.k;
+  const all = (byLang ? langCounts : groupCounts).map(([x]) => x);
+  if (e.altKey) { hidden.clear(); all.forEach((x) => x !== k && hidden.add(x)); }
+  else if (hidden.has(k)) hidden.delete(k); else hidden.add(k);
+  rebuild();
+});
+function setMode(m) { S.mode = m; S.selected = null; renderDetail(); document.querySelectorAll('#modeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.v === m)); fitted = false; rebuild(); }
+$('modeSeg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setMode(b.dataset.v); });
+$('colorSeg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; S.color = b.dataset.v; document.querySelectorAll('#colorSeg button').forEach((x) => x.classList.toggle('on', x === b)); rebuild(); renderDetail(); });
+const bindCheck = (id, key, re = true) => $(id).addEventListener('change', (e) => { S[key] = e.target.checked; if (re) rebuild(); else draw(); });
+bindCheck('optTests', 'tests'); bindCheck('optDocs', 'docs'); bindCheck('optStyle', 'style'); bindCheck('optVendor', 'vendor'); bindCheck('optIsolated', 'isolated'); bindCheck('optLabels', 'labels', false); bindCheck('optFocus', 'focus');
+$('optDepth').addEventListener('input', (e) => { S.depth = +e.target.value; $('depthV').textContent = S.depth; if (S.focus) rebuild(); });
+$('fitBtn').addEventListener('click', fit);
+$('relayoutBtn').addEventListener('click', () => { posCache.clear(); nodes.forEach((n) => { n.fixed = false; }); nodes = []; fitted = false; rebuild(); });
+$('themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  try { localStorage.setItem('cg-theme', document.documentElement.getAttribute('data-theme')); } catch {}
+  readColors(); draw();
+});
+try { const t = localStorage.getItem('cg-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch {}
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { readColors(); draw(); });
+
+function updateStats() {
+  $('stats').textContent = `${files.length} files · ${syms.length} symbols · ${D.edges.length} dependencies · showing ${nodes.length} nodes · built ${(D.generated || '').slice(0, 16).replace('T', ' ')}`;
+}
+$('title').textContent = 'Codegraph · ' + D.name;
+
+readColors();
+new ResizeObserver(resize).observe($('stage'));
+resize();
+rebuild();
+})();
+</script>
+</body>
+</html>
